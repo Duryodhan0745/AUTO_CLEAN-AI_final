@@ -4,7 +4,6 @@ Run:  uvicorn main:app --reload --port 8000
 """
 
 import io
-import os
 import uuid
 import textwrap
 import logging
@@ -19,7 +18,6 @@ logger = logging.getLogger("autoprep")
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, Dict, Any
 
@@ -37,11 +35,9 @@ app.add_middleware(
 # In-memory store  {dataset_id: {"df": pd.DataFrame, "filename": str, ...}}
 STORE: Dict[str, Dict[str, Any]] = {}
 
-UPLOAD_DIR = Path("uploads")
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "uploads"
 UPLOAD_DIR.mkdir(exist_ok=True)
-
-# Serve frontend static files (CSS, JS) from the project root
-app.mount("/static", StaticFiles(directory=".", html=False), name="static")
 
 # ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -62,6 +58,13 @@ def _get_dataset(dataset_id: str) -> Dict[str, Any]:
     if dataset_id not in STORE:
         raise HTTPException(status_code=404, detail="Dataset not found. Please upload again.")
     return STORE[dataset_id]
+
+
+def _project_file(name: str) -> Path:
+    path = BASE_DIR / name
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"{name} not found.")
+    return path
 
 
 def _infer_columns(df: pd.DataFrame):
@@ -100,6 +103,11 @@ def _infer_columns(df: pd.DataFrame):
     return cols
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
+
+@app.get("/healthz")
+def healthcheck():
+    return {"status": "ok"}
+
 
 @app.post("/upload")
 async def upload(file: UploadFile = File(...)):
@@ -484,16 +492,16 @@ def report_status(dataset_id: str):
 @app.get("/", response_class=FileResponse)
 def serve_frontend():
     """Serve the main HTML frontend."""
-    return FileResponse("index.html")
+    return FileResponse(_project_file("index.html"))
 
 @app.get("/styles.css")
 def serve_css():
-    return FileResponse("styles.css", media_type="text/css")
+    return FileResponse(_project_file("styles.css"), media_type="text/css")
 
 @app.get("/api.js")
 def serve_api_js():
-    return FileResponse("api.js", media_type="application/javascript")
+    return FileResponse(_project_file("api.js"), media_type="application/javascript")
 
 @app.get("/app.js")
 def serve_app_js():
-    return FileResponse("app.js", media_type="application/javascript")
+    return FileResponse(_project_file("app.js"), media_type="application/javascript")
