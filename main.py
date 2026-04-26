@@ -7,6 +7,7 @@ import io
 import uuid
 import textwrap
 import logging
+import threading
 import warnings
 from pathlib import Path
 
@@ -15,7 +16,7 @@ import numpy as np
 
 logger = logging.getLogger("autoprep")
 
-from fastapi import BackgroundTasks, FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -87,10 +88,10 @@ def _generate_profile_report(dataset_id: str) -> None:
             report_df[bool_cols] = report_df[bool_cols].astype(int)
 
         # Keep report generation light enough for hosted environments.
-        if len(report_df) > 300:
-            report_df = report_df.sample(300, random_state=42)
-        if len(report_df.columns) > 40:
-            report_df = report_df.iloc[:, :40]
+        if len(report_df) > 150:
+            report_df = report_df.sample(150, random_state=42)
+        if len(report_df.columns) > 25:
+            report_df = report_df.iloc[:, :25]
 
         rpt = ProfileReport(
             report_df,
@@ -193,7 +194,7 @@ def profile(dataset_id: str):
 
 
 @app.post("/process/{dataset_id}")
-def process(dataset_id: str, cfg: ProcessConfig, background_tasks: BackgroundTasks):
+def process(dataset_id: str, cfg: ProcessConfig):
     entry = _get_dataset(dataset_id)
     df = entry["df_original"].copy()
     logs = []
@@ -439,7 +440,7 @@ def process(dataset_id: str, cfg: ProcessConfig, background_tasks: BackgroundTas
     entry["report_html"] = None
     entry["report_status"] = "pending"
     entry["report_error"] = None
-    background_tasks.add_task(_generate_profile_report, dataset_id)
+    threading.Thread(target=_generate_profile_report, args=(dataset_id,), daemon=True).start()
 
     orig_df = entry["df_original"]
     return {

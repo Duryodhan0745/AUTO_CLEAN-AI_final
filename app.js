@@ -576,7 +576,7 @@ async function pollForReport() {
   const dlReportBtn = document.getElementById('dl-report-btn');
   const reportText = reportCard?.querySelector('p');
 
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 40; attempt += 1) {
     try {
       const status = await api.reportStatus(state.datasetId);
       if (status.report_available) {
@@ -595,8 +595,15 @@ async function pollForReport() {
         return;
       }
     } catch (e) {
-      if (reportText) reportText.textContent = `Unable to check report status: ${e.message}`;
-      return;
+      const transient = e.message.includes('(502)') || e.message.includes('Failed to fetch');
+      if (!transient) {
+        if (reportText) reportText.textContent = `Unable to check report status: ${e.message}`;
+        return;
+      }
+
+      if (reportText) {
+        reportText.textContent = 'Report generation is still in progress. The server is taking a little longer than expected.';
+      }
     }
 
     await new Promise(resolve => setTimeout(resolve, 3000));
