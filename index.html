@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoPrep AI — ML Data Preprocessing Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- NAV                                                        -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <nav class="nav">
+    <div class="nav-left">
+      <a class="nav-logo" href="#">
+        <div class="logo-mark">A</div>
+        AutoPrep<span style="color:var(--accent)">AI</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PAGE: UPLOAD                                               -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section id="page-upload" class="page-section page">
+    <div class="grid-bg"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="hero">
+
+      <div class="announce-badge">
+        <div class="announce-dot"><span></span></div>
+        <span class="announce-text">
+          <strong>New:</strong> Full ydata-profiling reports on cleaned datasets
+        </span>
+      </div>
+
+      <h1 class="hero-headline">
+        Raw data in.<br/>
+        <span class="italic">ML-ready out.</span>
+      </h1>
+
+      <p class="hero-desc">
+        Drop your CSV and AutoPrep handles everything — missing values,
+        outliers, encoding, scaling, VIF, RFE &amp; PCA. Export a reproducible
+        Python pipeline in seconds.
+      </p>
+
+      <div class="hero-cta-row">
+        <button class="btn-hero-primary" onclick="document.getElementById('file-input').click()">
+          Upload your CSV →
+        </button>
+      </div>
+
+      <div class="features-row">
+        <div class="feature-chip"><span class="chip-dot teal"></span>Missing values</div>
+        <div class="feature-chip"><span class="chip-dot purple"></span>Outlier handling</div>
+        <div class="feature-chip"><span class="chip-dot orange"></span>Encoding</div>
+        <div class="feature-chip"><span class="chip-dot blue"></span>Scaling</div>
+        <div class="features-divider"></div>
+        <div class="feature-chip"><span class="chip-dot purple"></span>VIF filter</div>
+        <div class="feature-chip"><span class="chip-dot pink"></span>RFE selection</div>
+        <div class="feature-chip"><span class="chip-dot teal"></span>PCA</div>
+        <div class="feature-chip"><span class="chip-dot orange"></span>Pipeline export</div>
+      </div>
+
+      <div class="upload-zone-new" id="upload-zone">
+        <div class="upload-icon-new">📄</div>
+        <h3>Drop your CSV here</h3>
+        <p>or click to browse files from your computer</p>
+        <span class="csv-pill">.CSV files only — any size</span>
+        <input type="file" id="file-input" accept=".csv" />
+        <button id="upload-btn" class="btn btn-primary" style="margin-top:16px;">⬆ Upload CSV</button>
+      </div>
+
+      <div id="upload-alert" class="hidden" style="max-width:600px;width:100%;margin-top:12px;"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PAGE: DASHBOARD                                            -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section id="page-dashboard" class="page-section page hidden">
+    <div class="dashboard">
+
+      <!-- Header -->
+      <div class="flex" style="align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <h2 style="font-family:var(--serif);font-size:1.8rem;font-weight:400;letter-spacing:-0.02em;color:var(--ink);">Dataset Overview</h2>
+          <p class="text-muted text-mono text-sm mt-2" id="dash-filename"></p>
+        </div>
+        <div class="flex gap-3">
+          <button class="btn btn-secondary" id="back-btn">← New Upload</button>
+          <button class="btn btn-primary" id="run-btn">Run Pipeline →</button>
+        </div>
+      </div>
+
+      <div id="dash-alert" class="hidden"></div>
+
+      <!-- Stats row -->
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Rows</div>
+          <div class="stat-value accent" id="stat-rows">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Columns</div>
+          <div class="stat-value" id="stat-cols">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Missing Cells</div>
+          <div class="stat-value warning" id="stat-missing">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Num / Cat</div>
+          <div class="stat-value" style="font-size:1.2rem;" id="stat-types">—</div>
+        </div>
+      </div>
+
+      <!-- Main grid -->
+      <div class="dashboard-grid">
+
+        <!-- LEFT SIDEBAR: mode + column removal + custom config -->
+        <div class="sidebar">
+
+          <!-- Mode selector -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚡ Pipeline Mode</div>
+            </div>
+            <div class="mode-selector">
+              <div class="mode-card active" data-mode="auto">
+                <div class="mode-icon">🤖</div>
+                <div class="mode-name">Auto</div>
+                <div class="mode-desc">Smart defaults</div>
+              </div>
+              <div class="mode-card" data-mode="custom">
+                <div class="mode-icon">🎛</div>
+                <div class="mode-name">Custom</div>
+                <div class="mode-desc">Configure each step</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column removal -->
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">🗑 Remove Columns</div>
+              <span class="text-xs text-mono remove-count" id="remove-count"></span>
+            </div>
+            <div class="flex gap-2 mb-4">
+              <button class="btn btn-secondary btn-sm" id="select-all-btn">All</button>
+              <button class="btn btn-secondary btn-sm" id="clear-sel-btn">Clear</button>
+            </div>
+            <div class="col-list" id="col-remove-list"></div>
+          </div>
+
+          <!-- Custom config panel (hidden until custom mode) -->
+          <div id="custom-config-panel" class="hidden">
+
+            <!-- Missing Values -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🔧 Missing Values</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Global Default Strategy</label>
+                <div class="select-wrap">
+                  <select class="form-select" id="missing-global">
+                    <option value="mean">Mean</option>
+                    <option value="median">Median</option>
+                    <option value="mode">Mode</option>
+                    <option value="drop_rows">Drop Rows</option>
+                  </select>
+                </div>
+              </div>
+              <div class="section-title">Per-Column Override</div>
+              <div class="per-col-config" id="per-col-missing"></div>
+            </div>
+
+            <!-- Outliers -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">📊 Outliers (IQR)</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Strategy</label>
+                <div class="select-wrap">
+                  <select class="form-select" id="outlier-strategy">
+                    <option value="cap">Cap (Winsorise)</option>
+                    <option value="remove">Remove Rows</option>
+                    <option value="keep">Keep As-Is</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Encoding -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🔢 Encoding</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Strategy</label>
+                <div class="select-wrap">
+                  <select class="form-select" id="encoding-strategy">
+                    <option value="onehot">One-Hot Encoding</option>
+                    <option value="label">Label Encoding</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scaling -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">⚖️ Scaling</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Strategy</label>
+                <div class="select-wrap">
+                  <select class="form-select" id="scaling-strategy">
+                    <option value="standard">Standard (Z-score)</option>
+                    <option value="minmax">Min-Max</option>
+                    <option value="robust">Robust (IQR)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- VIF -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🔗 VIF Filter</div>
+                <label class="toggle">
+                  <input type="checkbox" id="vif-toggle" checked />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="vif-options">
+                <div class="form-group">
+                  <label class="form-label">VIF Threshold (default: 10)</label>
+                  <input type="number" class="form-input" id="vif-threshold" value="10" min="1" max="100" step="1" />
+                </div>
+              </div>
+            </div>
+
+            <!-- RFE -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🎯 RFE Feature Selection</div>
+                <label class="toggle">
+                  <input type="checkbox" id="rfe-toggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <div id="rfe-options" class="hidden">
+                <div class="form-group">
+                  <label class="form-label">Target Column</label>
+                  <div class="select-wrap">
+                    <select class="form-select" id="rfe-target"></select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Number of Features (0 = auto)</label>
+                  <input type="number" class="form-input" id="rfe-n" value="0" min="0" step="1" />
+                </div>
+              </div>
+            </div>
+
+            <!-- PCA -->
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title">🌀 PCA (95% variance)</div>
+                <label class="toggle">
+                  <input type="checkbox" id="pca-toggle" />
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+              <p class="text-muted text-xs text-mono">Reduces dimensionality retaining 95% explained variance.</p>
+            </div>
+
+          </div>
+          <!-- /custom-config-panel -->
+        </div>
+
+        <!-- RIGHT: preview + column profiles -->
+        <div>
+          <div class="card mb-4">
+            <div class="card-header">
+              <div class="card-title">👁 Data Preview</div>
+              <span class="text-xs text-mono text-muted">First 8 rows</span>
+            </div>
+            <div id="preview-table"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📋 Column Profiles</div>
+            </div>
+            <div id="col-profiles"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Bottom CTA -->
+      <div class="flex" style="justify-content:center;margin-top:32px;gap:12px;">
+        <button class="btn btn-secondary" onclick="document.getElementById('back-btn').click()">← Back</button>
+        <button class="btn btn-primary" style="min-width:180px;" onclick="document.getElementById('run-btn').click()">
+          ⚡ Run Pipeline
+        </button>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PAGE: PROCESSING                                           -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section id="page-processing" class="page-section page hidden">
+
+    <div style="height:56px;background:var(--white);border-bottom:1px solid var(--ink-10);display:flex;align-items:center;justify-content:space-between;padding:0 28px;position:sticky;top:64px;z-index:5;">
+      <div style="font-size:0.875rem;color:var(--ink-40);display:flex;align-items:center;gap:6px;">
+        Home / <span style="color:var(--ink);font-weight:500;">Processing</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:0.72rem;color:var(--ink-40);">
+        <div class="spinner" style="width:14px;height:14px;border-width:1.5px;"></div>
+        Pipeline running…
+      </div>
+    </div>
+
+    <div style="max-width:960px;margin:0 auto;padding:32px 28px 60px;display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start;">
+
+      <!-- LEFT: steps list -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <div class="card" style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <h2 style="font-family:var(--serif);font-size:1.6rem;font-weight:400;letter-spacing:-0.02em;color:var(--ink);margin-bottom:4px;">Processing Dataset</h2>
+            <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-40);" id="proc-filename-label">Running your preprocessing pipeline…</p>
+          </div>
+          <div style="width:44px;height:44px;border-radius:11px;background:var(--off-white);border:1px solid var(--ink-10);display:flex;align-items:center;justify-content:center;">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px 20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <span style="font-family:var(--mono);font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--ink-40);">Overall Progress</span>
+            <span style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-60);" id="proc-pct-label">0%</span>
+          </div>
+          <div class="progress-bar-wrap" style="margin:0;">
+            <div class="progress-bar" id="process-bar"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚡ Pipeline Steps</div>
+            <span style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-40);" id="proc-step-counter">0 / 8 complete</span>
+          </div>
+          <div class="pipeline-steps" id="processing-steps"></div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: live stats sidebar -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <div class="card" style="background:var(--ink);border-color:var(--ink);">
+          <div style="font-family:var(--mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4);margin-bottom:10px;">Current Stage</div>
+          <div style="font-family:var(--serif);font-size:1.3rem;font-weight:400;color:white;letter-spacing:-0.01em;" id="proc-stage-name">Initialising</div>
+          <div style="font-family:var(--mono);font-size:0.72rem;color:rgba(255,255,255,0.45);margin-top:6px;" id="proc-stage-desc">Preparing pipeline…</div>
+          <div style="margin-top:16px;height:2px;background:rgba(255,255,255,0.12);border-radius:1px;overflow:hidden;">
+            <div id="proc-stage-bar" style="height:100%;background:white;border-radius:1px;transition:width 0.5s ease;width:0%;"></div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div class="card" style="padding:14px 16px;">
+            <div style="font-family:var(--mono);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-40);margin-bottom:6px;">Steps Done</div>
+            <div style="font-family:var(--serif);font-size:1.6rem;font-weight:400;color:var(--accent);letter-spacing:-0.02em;" id="proc-done-count">0</div>
+          </div>
+          <div class="card" style="padding:14px 16px;">
+            <div style="font-family:var(--mono);font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--ink-40);margin-bottom:6px;">Remaining</div>
+            <div style="font-family:var(--serif);font-size:1.6rem;font-weight:400;color:var(--ink);letter-spacing:-0.02em;" id="proc-rem-count">8</div>
+          </div>
+        </div>
+
+        <div class="card" style="padding:16px 20px;">
+          <div style="font-family:var(--mono);font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--ink-40);margin-bottom:12px;">Step Tracker</div>
+          <div style="display:flex;flex-direction:column;gap:6px;" id="proc-tracker"></div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <!-- PAGE: RESULTS                                              -->
+  <!-- ══════════════════════════════════════════════════════════ -->
+  <section id="page-results" class="page-section page hidden">
+
+    <div class="results-top-bar">
+      <div style="font-size:0.875rem;color:var(--ink-40);display:flex;align-items:center;gap:6px;">
+        Home / <span style="color:var(--ink);font-weight:500;">Results</span>
+      </div>
+      <div class="flex gap-3">
+        <button class="btn btn-secondary" id="restart-btn">↩ Process New File</button>
+        <a class="btn btn-success" id="dl-csv-btn" href="#" download="cleaned_dataset.csv">⬇ Cleaned CSV</a>
+        <a class="btn btn-secondary" id="dl-pipeline-btn" href="#" download="pipeline.py">📜 Pipeline Script</a>
+      </div>
+    </div>
+
+    <div class="results-full">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:28px 0 20px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div class="results-icon" style="margin:0;">✅</div>
+          <div>
+            <h2 style="font-family:var(--serif);font-size:1.8rem;font-weight:400;letter-spacing:-0.02em;color:var(--ink);margin-bottom:4px;">Pipeline Complete</h2>
+            <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-40);">Dataset preprocessed and ready for ML training</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <div class="results-stat-card" style="text-align:center;padding:14px 20px;min-width:110px;">
+            <div class="diff-label">Rows</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;">
+              <span class="diff-num before" id="res-rows-before" style="font-size:1.3rem;">—</span>
+              <span style="color:var(--ink-20);font-size:1rem;">→</span>
+              <span class="diff-num after" id="res-rows-after" style="font-size:1.3rem;">—</span>
+            </div>
+          </div>
+          <div class="results-stat-card" style="text-align:center;padding:14px 20px;min-width:110px;">
+            <div class="diff-label">Columns</div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:4px;">
+              <span class="diff-num before" id="res-cols-before" style="font-size:1.3rem;">—</span>
+              <span style="color:var(--ink-20);font-size:1rem;">→</span>
+              <span class="diff-num after" id="res-cols-after" style="font-size:1.3rem;">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-header">
+          <div class="card-title">📋 Transformation Log</div>
+          <span style="font-family:var(--mono);font-size:0.72rem;color:var(--ink-40);">All pipeline steps</span>
+        </div>
+        <div id="result-logs" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:10px;"></div>
+      </div>
+
+      <div class="card" id="report-card" style="display:none;">
+        <div class="card-header">
+          <div class="card-title">🔬 Full Profiling Report</div>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-family:var(--mono);font-size:0.72rem;color:var(--accent);background:var(--accent-bg);border:1px solid var(--accent-border);padding:2px 10px;border-radius:var(--radius-pill);">ydata-profiling</span>
+            <a class="btn btn-secondary btn-sm" id="dl-report-btn" href="#" download="profiling_report.html">⬇ Download HTML</a>
+          </div>
+        </div>
+        <p style="font-family:var(--mono);font-size:0.78rem;color:var(--ink-40);margin-bottom:16px;">
+          Complete statistical analysis of your cleaned dataset — correlations, distributions, missing value patterns, and more.
+        </p>
+        <div style="border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--ink-10);">
+          <iframe id="report-iframe" src="" loading="lazy"></iframe>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>
