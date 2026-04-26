@@ -544,7 +544,12 @@ function buildResults() {
     dlReportBtn.href   = api.downloadReportUrl(state.datasetId);
     reportCard.style.display = '';
   } else {
-    if (reportCard) reportCard.style.display = 'none';
+    if (reportCard) {
+      reportCard.style.display = '';
+      reportIframe.removeAttribute('src');
+      reportCard.querySelector('p').textContent = 'Generating profiling report. This can take a little longer on hosted deployments.';
+    }
+    if (r.report_pending) pollForReport();
   }
 
   // Transformation log
@@ -562,6 +567,44 @@ function buildResults() {
     `;
     logsEl.appendChild(div);
   });
+}
+
+/** Poll until the profiling report is ready or fails. */
+async function pollForReport() {
+  const reportCard = document.getElementById('report-card');
+  const reportIframe = document.getElementById('report-iframe');
+  const dlReportBtn = document.getElementById('dl-report-btn');
+  const reportText = reportCard?.querySelector('p');
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      const status = await api.reportStatus(state.datasetId);
+      if (status.report_available) {
+        if (reportText) {
+          reportText.textContent = 'Complete statistical analysis of your cleaned dataset - correlations, distributions, missing value patterns, and more.';
+        }
+        reportIframe.src = api.reportUrl(state.datasetId);
+        dlReportBtn.href = api.downloadReportUrl(state.datasetId);
+        return;
+      }
+
+      if (status.report_status === 'error') {
+        if (reportText) {
+          reportText.textContent = `Profiling report could not be generated${status.report_error ? `: ${status.report_error}` : '.'}`;
+        }
+        return;
+      }
+    } catch (e) {
+      if (reportText) reportText.textContent = `Unable to check report status: ${e.message}`;
+      return;
+    }
+
+    await new Promise(resolve => setTimeout(resolve, 3000));
+  }
+
+  if (reportText) {
+    reportText.textContent = 'Profiling report is taking longer than expected. Please check again in a bit.';
+  }
 }
 
 // ── 9. INIT / EVENT BINDINGS ─────────────────────────────────────────────────

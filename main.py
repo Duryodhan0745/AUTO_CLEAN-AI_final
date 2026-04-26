@@ -15,7 +15,7 @@ import numpy as np
 
 logger = logging.getLogger("autoprep")
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import BackgroundTasks, FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -65,6 +65,49 @@ def _project_file(name: str) -> Path:
     if not path.exists():
         raise HTTPException(status_code=404, detail=f"{name} not found.")
     return path
+
+
+def _generate_profile_report(dataset_id: str) -> None:
+    entry = STORE.get(dataset_id)
+    if not entry:
+        return
+
+    entry["report_status"] = "running"
+    entry["report_error"] = None
+
+    try:
+        from ydata_profiling import ProfileReport
+
+        warnings.filterwarnings("ignore")
+
+        report_df = entry["df"].copy().reset_index(drop=True)
+
+        bool_cols = report_df.select_dtypes(include="bool").columns.tolist()
+        if bool_cols:
+            report_df[bool_cols] = report_df[bool_cols].astype(int)
+
+        # Keep report generation light enough for hosted environments.
+        if len(report_df) > 300:
+            report_df = report_df.sample(300, random_state=42)
+        if len(report_df.columns) > 40:
+            report_df = report_df.iloc[:, :40]
+
+        rpt = ProfileReport(
+            report_df,
+            title="AutoPrep AI - Cleaned Dataset",
+            minimal=True,
+            progress_bar=False,
+            correlations=None,
+            interactions=None,
+        )
+        entry["report_html"] = rpt.to_html()
+        entry["report_status"] = "ready"
+        logger.info("ydata-profiling report generated successfully")
+    except Exception as exc:
+        logger.warning(f"ydata-profiling failed: {exc}")
+        entry["report_html"] = None
+        entry["report_status"] = "error"
+        entry["report_error"] = str(exc)
 
 
 def _infer_columns(df: pd.DataFrame):
@@ -128,6 +171,8 @@ async def upload(file: UploadFile = File(...)):
         "cleaned_csv": None,
         "pipeline_script": None,
         "report_html": None,
+        "report_status": "idle",
+        "report_error": None,
     }
     return {"dataset_id": dataset_id, "filename": file.filename}
 
@@ -148,7 +193,7 @@ def profile(dataset_id: str):
 
 
 @app.post("/process/{dataset_id}")
-def process(dataset_id: str, cfg: ProcessConfig):
+def process(dataset_id: str, cfg: ProcessConfig, background_tasks: BackgroundTasks):
     entry = _get_dataset(dataset_id)
     df = entry["df_original"].copy()
     logs = []
@@ -391,6 +436,22 @@ def process(dataset_id: str, cfg: ProcessConfig):
     script += "\ndf.to_csv('cleaned_dataset.csv', index=False)\nprint('Done! Cleaned dataset saved.')\n"
     entry["pipeline_script"] = script
 
+    entry["report_html"] = None
+    entry["report_status"] = "pending"
+    entry["report_error"] = None
+    background_tasks.add_task(_generate_profile_report, dataset_id)
+
+    orig_df = entry["df_original"]
+    return {
+        "rows_before": len(orig_df),
+        "rows_after": len(df),
+        "cols_before": len(orig_df.columns),
+        "cols_after": len(df.columns),
+        "report_available": False,
+        "report_pending": True,
+        "logs": logs,
+    }
+
     # ── Try ydata-profiling report ─────────────────────────────────────────────
     report_available = False
     try:
@@ -483,6 +544,7 @@ def report_status(dataset_id: str):
     """Debug endpoint — shows whether report generation succeeded and why."""
     entry = _get_dataset(dataset_id)
     return {
+        "report_status": entry.get("report_status", "idle"),
         "report_available": entry.get("report_html") is not None,
         "report_html_length": len(entry["report_html"]) if entry.get("report_html") else 0,
         "report_error": entry.get("report_error", None),

@@ -105,4 +105,20 @@ const api = {
   downloadReportUrl(datasetId) {
     return `${BASE_URL}/download-report/${datasetId}`;
   },
+
+  /**
+   * Returns the current profiling report status.
+   * @param {string} datasetId
+   * @returns {Promise<Object>}
+   */
+  async reportStatus(datasetId) {
+    const res = await fetch(`${BASE_URL}/report-status/${datasetId}`);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `Report status failed (${res.status})`);
+    }
+
+    return res.json();
+  },
 };
